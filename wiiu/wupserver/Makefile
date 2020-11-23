@@ -53,7 +53,7 @@ $(PROJECTNAME).elf: $(OFILES)
 
 clean:
 	@rm -f build/*.o build/*.d
-	@rmdir build 2>/nul; true
+	@rmdir build; true
 	@rm -f $(PROJECTNAME).elf $(PROJECTNAME).bin $(PROJECTNAME)_bin.h
 	@echo "all cleaned up !"
 

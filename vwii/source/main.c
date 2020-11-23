@@ -16,8 +16,7 @@ static u8 *BOOTER_ADDR = (u8*)0x92F00000;
 static void (*entry)() = (void*)0x92F00000;
 static struct __argv *ARGS_ADDR = (struct __argv*)0x92F00800;
 
-extern u8 app_booter_bin[];
-extern u32 app_booter_bin_size;
+#include "app_booter_bin.h"
 
 int main(int argc, char *argv[]) 
 {

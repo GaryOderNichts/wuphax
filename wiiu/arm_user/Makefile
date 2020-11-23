@@ -11,7 +11,7 @@ CC = arm-none-eabi-gcc
 LINK = arm-none-eabi-ld
 AS = arm-none-eabi-as
 OBJCOPY = arm-none-eabi-objcopy
-CFLAGS += -Wall -mbig-endian -std=gnu99 -march=armv5 -Os -I$(DEVKITPRO)/libnds/include
+CFLAGS += -Wall -mbig-endian -std=gnu99 -march=armv5t -Os -I$(DEVKITPRO)/libnds/include
 LDFLAGS += --script=link.ld -EB -L"$(DEVKITARM)/arm-none-eabi/lib"
 
 CFILES = $(wildcard source/*.c)
@@ -53,7 +53,7 @@ $(PROJECTNAME).elf: $(OFILES)
 
 clean:
 	@rm -f build/*.o build/*.d
-	@rmdir build 2>/nul; true
+	@rmdir build; true
 	@rm -f $(PROJECTNAME).elf $(PROJECTNAME).bin $(PROJECTNAME)_bin.h
 	@echo "all cleaned up !"
 

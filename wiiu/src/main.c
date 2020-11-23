@@ -8,12 +8,14 @@
 #include <malloc.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <whb/proc.h>
+#include <coreinit/mcp.h>
+#include <coreinit/ios.h>
+#include <coreinit/screen.h>
+#include <coreinit/cache.h>
+#include <vpad/input.h>
 #include <iosuhax.h>
-#include "dynamic_libs/os_functions.h"
-#include "dynamic_libs/sys_functions.h"
-#include "dynamic_libs/vpad_functions.h"
-#include "system/memory.h"
-#include "common/common.h"
+#include <stdint.h>
 #include "main.h"
 #include "exploit.h"
 #include "../payload/wupserver_bin.h"
@@ -23,12 +25,14 @@ static const char *sdCardVolPath = "/vol/storage_sdcard";
 static const char *vWiiAppPath = "/vol/storage_slccmpt01/title/00010002/48414341/content/00000001.app";
 static const char *sdBackupPath = "/vol/storage_sdcard/wuphaxBackup.app";
 
+typedef uint8_t u8;
+typedef uint32_t u32;
+
 //wuphax vwii executable
-extern u8 boot_dol[];
-extern u32 boot_dol_size;
+#include "boot_dol.h"
 
 //just to be able to call async
-void someFunc(void *arg)
+void someFunc(IOSError err, void *arg)
 {
 	(void)arg;
 }
@@ -74,17 +78,14 @@ void println(int line, const char *msg)
 
 int Menu_Main(void)
 {
-	InitOSFunctionPointers();
-	InitSysFunctionPointers();
-	InitVPadFunctionPointers();
+	WHBProcInit();
 	VPADInit();
-	memoryInitialize();
 
 	// Init screen
 	OSScreenInit();
 	int screen_buf0_size = OSScreenGetBufferSizeEx(0);
 	int screen_buf1_size = OSScreenGetBufferSizeEx(1);
-	uint8_t *screenBuffer = MEMBucket_alloc(screen_buf0_size+screen_buf1_size, 0x100);
+	uint8_t *screenBuffer = memalign(0x100, screen_buf0_size+screen_buf1_size);
 	OSScreenSetBufferEx(0, screenBuffer);
 	OSScreenSetBufferEx(1, (screenBuffer + screen_buf0_size));
 	OSScreenEnableEx(0, 1);
@@ -97,7 +98,7 @@ int Menu_Main(void)
 	println(3,"Press B to restore your Mii Channel from SD Card.");
 
 	int vpadError = -1;
-	VPADData vpad;
+	VPADStatus vpad;
 	//wait for user to decide option
 	int action = 0;
 	while(1)
@@ -106,15 +107,15 @@ int Menu_Main(void)
 
 		if(vpadError == 0)
 		{
-			if((vpad.btns_d | vpad.btns_h) & VPAD_BUTTON_HOME)
+			if(!WHBProcIsRunning())
 			{
-				MEMBucket_free(screenBuffer);
-				memoryRelease();
-				return EXIT_SUCCESS;
+				free(screenBuffer);
+				WHBProcShutdown();
+				return 0;
 			}
-			else if((vpad.btns_d | vpad.btns_h) & VPAD_BUTTON_A)
+			else if((vpad.trigger | vpad.hold) & VPAD_BUTTON_A)
 				break;
-			else if((vpad.btns_d | vpad.btns_h) & VPAD_BUTTON_B)
+			else if((vpad.trigger | vpad.hold) & VPAD_BUTTON_B)
 			{
 				action = 1;
 				break;
@@ -189,7 +190,7 @@ int Menu_Main(void)
 			println(line++,"Failed to stat app file!");
 			goto prgEnd;
 		}
-		appBuf = MEMBucket_alloc(stats.size,4);
+		appBuf = memalign(4, stats.size);
 		size_t done = 0;
 		while(done < stats.size)
 		{
@@ -281,7 +282,7 @@ int Menu_Main(void)
 			println(line++,"Failed to stat backup file!");
 			goto prgEnd;
 		}
-		appBuf = MEMBucket_alloc(stats.size,4);
+		appBuf = memalign(4, stats.size);
 		size_t done = 0;
 		while(done < stats.size)
 		{
@@ -326,7 +327,7 @@ int Menu_Main(void)
 prgEnd:
 	//used to deal with app
 	if(appBuf)
-		MEMBucket_free(appBuf);
+		free(appBuf);
 	//close down everything fsa related
 	if(fsaFd >= 0)
 	{
@@ -347,11 +348,9 @@ prgEnd:
 		IOSUHAX_Close();
 	sleep(5);
 	//will do IOSU reboot
-	OSForceFullRelaunch();
-	SYSLaunchMenu();
 	OSScreenEnableEx(0, 0);
 	OSScreenEnableEx(1, 0);
-	MEMBucket_free(screenBuffer);
-	memoryRelease();
-	return EXIT_RELAUNCH_ON_LOAD;
+	free(screenBuffer);
+	WHBProcShutdown();
+	return 0xFFFFFFFD;
 }
